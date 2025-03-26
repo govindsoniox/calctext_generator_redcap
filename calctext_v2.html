@@ -58,10 +58,16 @@
             border-radius: 5px;
             margin-bottom: 10px;
             border-left: 4px solid #2c5e9e;
+            position: relative;
         }
         .remove-btn {
             background-color: #e74c3c;
             margin-top: 10px;
+        }
+        .edit-btn {
+            background-color: #f39c12;
+            margin-top: 10px;
+            margin-right: 10px;
         }
         #result {
             background-color: #eaf2f8;
@@ -83,6 +89,15 @@
             border-radius: 5px;
             margin-bottom: 20px;
         }
+        .checkbox-guidance {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .button-group {
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -103,17 +118,45 @@
             </ul>
         </div>
         
+        <div class="checkbox-guidance">
+            <h3>🔘 How to List Checked Checkbox Options:</h3>
+            <p>To list all checked options of a checkbox field in your formula:</p>
+            <ol>
+                <li>For each checkbox option, add a condition checking if it's checked (<code>= "1"</code>)</li>
+                <li>Include the option's label in the output if checked</li>
+                <li>Combine all options with your separator</li>
+            </ol>
+            
+            <p><strong>Example Checkbox Field:</strong> <code>symptoms</code> with options:</p>
+            <ul>
+                <li><code>symptoms___1</code> = Fever</li>
+                <li><code>symptoms___2</code> = Cough</li>
+                <li><code>symptoms___3</code> = Headache</li>
+            </ul>
+            
+            <p><strong>Formula to list checked options:</strong></p>
+            <pre>@CALCTEXT(
+    trim(
+        concat(
+            if([symptoms___1] = '1', 'Fever | ', ''),
+            if([symptoms___2] = '1', 'Cough | ', ''),
+            if([symptoms___3] = '1', 'Headache | ', '')
+        )
+    )
+)</pre>
+        </div>
+        
         <div class="form-group">
             <label for="separator">Separator (what appears between fields in output):</label>
             <input type="text" id="separator" value=" | " placeholder="e.g., ' | ', '<br>', '\n'">
         </div>
         
-        <h3>Add Fields to Include:</h3>
+        <h3>Add/Edit Fields to Include:</h3>
         <div id="variables-container"></div>
         
         <div class="form-group">
             <label for="field-name">Field Name (exact REDCap variable name):</label>
-            <input type="text" id="field-name" placeholder="e.g., blood_pressure">
+            <input type="text" id="field-name" placeholder="e.g., blood_pressure or symptoms___1 for checkbox">
         </div>
         
         <div class="form-group">
@@ -123,10 +166,12 @@
         
         <div class="form-group">
             <label for="label">Display Label:</label>
-            <input type="text" id="label" placeholder="e.g., BP">
+            <input type="text" id="label" placeholder="e.g., BP or Fever (for checkbox)">
         </div>
         
         <button id="add-btn">Add Field</button>
+        <button id="update-btn" style="display: none;">Update Field</button>
+        <button id="cancel-edit-btn" style="display: none;" class="remove-btn">Cancel Edit</button>
         <button id="generate-btn">Generate @CALCTEXT</button>
         <button id="reset-btn" class="remove-btn">Reset All</button>
         
@@ -153,26 +198,35 @@
             if([blood_pressure] <> '', concat('BP: ', [blood_pressure], ' | '), ''),
             if([heart_rate] <> '', concat('HR: ', [heart_rate], ' | '), ''),
             if([disease_malignancies] = "1", concat('Malignancy: Yes', ' | '), ''),
-            if([symptoms___1] = "1", concat('Fever: Yes', ' | '), '')
+            if([symptoms___1] = "1", concat('Fever', ' | '), '')
         )
     )
 )</pre>
-            <p>This would display something like: <code>BP: 120/80 | HR: 72 | Malignancy: Yes | Fever: Yes</code> in REDCap</p>
         </div>
     </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const variables = [];
+            let editingIndex = null;
             
-            document.getElementById('add-btn').addEventListener('click', addVariable);
-            document.getElementById('generate-btn').addEventListener('click', generateCalcText);
-            document.getElementById('reset-btn').addEventListener('click', resetAll);
-            document.getElementById('copy-btn').addEventListener('click', copyToClipboard);
+            const addBtn = document.getElementById('add-btn');
+            const updateBtn = document.getElementById('update-btn');
+            const cancelEditBtn = document.getElementById('cancel-edit-btn');
+            const generateBtn = document.getElementById('generate-btn');
+            const resetBtn = document.getElementById('reset-btn');
+            const copyBtn = document.getElementById('copy-btn');
+            
+            addBtn.addEventListener('click', addVariable);
+            updateBtn.addEventListener('click', updateVariable);
+            cancelEditBtn.addEventListener('click', cancelEdit);
+            generateBtn.addEventListener('click', generateCalcText);
+            resetBtn.addEventListener('click', resetAll);
+            copyBtn.addEventListener('click', copyToClipboard);
             
             function addVariable() {
                 const fieldName = document.getElementById('field-name').value.trim();
-                const condition = document.getElementById('condition').value.trim() || "<> ''"; // Default condition
+                const condition = document.getElementById('condition').value.trim() || "<> ''";
                 const label = document.getElementById('label').value.trim();
                 
                 if (!fieldName || !label) {
@@ -182,12 +236,43 @@
                 
                 variables.push({fieldName, condition, label});
                 renderVariables();
+                clearForm();
+            }
+            
+            function updateVariable() {
+                const fieldName = document.getElementById('field-name').value.trim();
+                const condition = document.getElementById('condition').value.trim() || "<> ''";
+                const label = document.getElementById('label').value.trim();
                 
-                // Clear input fields (except condition which has default)
-                document.getElementById('field-name').value = '';
-                document.getElementById('label').value = '';
-                // Reset condition to default for next entry
-                document.getElementById('condition').value = "<> ''";
+                if (!fieldName || !label) {
+                    alert('Please fill in all required fields');
+                    return;
+                }
+                
+                variables[editingIndex] = {fieldName, condition, label};
+                renderVariables();
+                cancelEdit();
+            }
+            
+            function cancelEdit() {
+                editingIndex = null;
+                clearForm();
+                addBtn.style.display = 'inline-block';
+                updateBtn.style.display = 'none';
+                cancelEditBtn.style.display = 'none';
+            }
+            
+            function editVariable(index) {
+                editingIndex = index;
+                const variable = variables[index];
+                
+                document.getElementById('field-name').value = variable.fieldName;
+                document.getElementById('condition').value = variable.condition;
+                document.getElementById('label').value = variable.label;
+                
+                addBtn.style.display = 'none';
+                updateBtn.style.display = 'inline-block';
+                cancelEditBtn.style.display = 'inline-block';
             }
             
             function renderVariables() {
@@ -206,19 +291,38 @@
                         <p><strong>Field:</strong> [${variable.fieldName}]</p>
                         <p><strong>Condition:</strong> ${variable.condition}</p>
                         <p><strong>Label:</strong> ${variable.label}</p>
-                        <button class="remove-btn" data-index="${index}">Remove</button>
+                        <div class="button-group">
+                            <button class="edit-btn" data-index="${index}">Edit</button>
+                            <button class="remove-btn" data-index="${index}">Remove</button>
+                        </div>
                     `;
                     container.appendChild(div);
                 });
                 
-                // Add event listeners to remove buttons
+                // Add event listeners to edit and remove buttons
+                document.querySelectorAll('.edit-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const index = parseInt(this.getAttribute('data-index'));
+                        editVariable(index);
+                    });
+                });
+                
                 document.querySelectorAll('.remove-btn').forEach(btn => {
                     btn.addEventListener('click', function() {
                         const index = parseInt(this.getAttribute('data-index'));
                         variables.splice(index, 1);
                         renderVariables();
+                        if (editingIndex === index) {
+                            cancelEdit();
+                        }
                     });
                 });
+            }
+            
+            function clearForm() {
+                document.getElementById('field-name').value = '';
+                document.getElementById('condition').value = "<> ''";
+                document.getElementById('label').value = '';
             }
             
             function generateCalcText() {
@@ -227,11 +331,16 @@
                     return;
                 }
                 
-                const separator = document.getElementById('separator').value.trim() || " | "; // Default separator
+                const separator = document.getElementById('separator').value.trim() || " | ";
                 
-                const calctextParts = variables.map(variable => 
-                    `if([${variable.fieldName}] ${variable.condition}, concat('${variable.label}: ', [${variable.fieldName}], '${separator}'), '')`
-                );
+                const calctextParts = variables.map(variable => {
+                    // For checkbox fields (those with ___ in name), don't show the field value, just the label
+                    if (variable.fieldName.includes('___')) {
+                        return `if([${variable.fieldName}] ${variable.condition}, '${variable.label}${separator}', '')`;
+                    } else {
+                        return `if([${variable.fieldName}] ${variable.condition}, concat('${variable.label}: ', [${variable.fieldName}], '${separator}'), '')`;
+                    }
+                });
                 
                 const calctextFormula = `@CALCTEXT(\n    trim(\n        concat(\n            ${calctextParts.join(',\n            ')}\n        )\n    )\n)`;
                 
@@ -243,8 +352,9 @@
                 variables.length = 0;
                 renderVariables();
                 document.getElementById('separator').value = ' | ';
-                document.getElementById('condition').value = "<> ''";
+                clearForm();
                 document.getElementById('result-container').style.display = 'none';
+                cancelEdit();
             }
             
             function copyToClipboard() {

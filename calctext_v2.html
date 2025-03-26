@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>REDCap @CALCTEXT Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        h1 {
+            color: #2c5e9e;
+            text-align: center;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #2c5e9e;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #1d4375;
+        }
+        #variables-container {
+            margin-bottom: 20px;
+        }
+        .variable-item {
+            background-color: #f9f9f9;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            border-left: 4px solid #2c5e9e;
+        }
+        .remove-btn {
+            background-color: #e74c3c;
+            margin-top: 10px;
+        }
+        #result {
+            background-color: #eaf2f8;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            margin-top: 20px;
+        }
+        .example {
+            background-color: #fffde7;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+        .guidance {
+            background-color: #e8f5e9;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔵 REDCap @CALCTEXT Generator 🔵</h1>
+        
+        <div class="guidance">
+            <h3>Condition Guidance:</h3>
+            <p><strong>For text fields or single-answer fields (dropdown, radio):</strong></p>
+            <ul>
+                <li>Use <code>&lt;&gt; ''</code> to check if the field is not empty (works for text fields and single-answer fields)</li>
+                <li>For single-answer fields, you can also use specific value checks like <code>= "1"</code> or <code>= "Yes"</code> (use the exact coded value)</li>
+            </ul>
+            <p><strong>For checkbox fields (multiple answers):</strong></p>
+            <ul>
+                <li>Use specific value checks like <code>= "1"</code> for each checkbox option (don't use <code>&lt;&gt; ''</code> for checkboxes)</li>
+                <li>Checkbox fields have variable names like <code>checkbox___1</code>, <code>checkbox___2</code>, etc.</li>
+            </ul>
+        </div>
+        
+        <div class="form-group">
+            <label for="separator">Separator (what appears between fields in output):</label>
+            <input type="text" id="separator" value=" | " placeholder="e.g., ' | ', '<br>', '\n'">
+        </div>
+        
+        <h3>Add Fields to Include:</h3>
+        <div id="variables-container"></div>
+        
+        <div class="form-group">
+            <label for="field-name">Field Name (exact REDCap variable name):</label>
+            <input type="text" id="field-name" placeholder="e.g., blood_pressure">
+        </div>
+        
+        <div class="form-group">
+            <label for="condition">Condition (when to show this field):</label>
+            <input type="text" id="condition" value="<> ''" placeholder="e.g., = '1', <> '', > '0'">
+        </div>
+        
+        <div class="form-group">
+            <label for="label">Display Label:</label>
+            <input type="text" id="label" placeholder="e.g., BP">
+        </div>
+        
+        <button id="add-btn">Add Field</button>
+        <button id="generate-btn">Generate @CALCTEXT</button>
+        <button id="reset-btn" class="remove-btn">Reset All</button>
+        
+        <div id="result-container" style="display: none;">
+            <h3>🔹 Generated REDCap Formula 🔹</h3>
+            <div id="result"></div>
+            <button id="copy-btn">Copy to Clipboard</button>
+        </div>
+        
+        <div class="example">
+            <h3>Example Transformation:</h3>
+            <p><strong>Inputs:</strong></p>
+            <ul>
+                <li>Field: blood_pressure, Condition: <> '', Label: BP</li>
+                <li>Field: heart_rate, Condition: <> '', Label: HR</li>
+                <li>Field: disease_malignancies, Condition: = "1", Label: Malignancy</li>
+                <li>Field: symptoms___1, Condition: = "1", Label: Fever</li>
+                <li>Separator: |</li>
+            </ul>
+            <p><strong>Output:</strong></p>
+            <pre>@CALCTEXT(
+    trim(
+        concat(
+            if([blood_pressure] <> '', concat('BP: ', [blood_pressure], ' | '), ''),
+            if([heart_rate] <> '', concat('HR: ', [heart_rate], ' | '), ''),
+            if([disease_malignancies] = "1", concat('Malignancy: Yes', ' | '), ''),
+            if([symptoms___1] = "1", concat('Fever: Yes', ' | '), '')
+        )
+    )
+)</pre>
+            <p>This would display something like: <code>BP: 120/80 | HR: 72 | Malignancy: Yes | Fever: Yes</code> in REDCap</p>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const variables = [];
+            
+            document.getElementById('add-btn').addEventListener('click', addVariable);
+            document.getElementById('generate-btn').addEventListener('click', generateCalcText);
+            document.getElementById('reset-btn').addEventListener('click', resetAll);
+            document.getElementById('copy-btn').addEventListener('click', copyToClipboard);
+            
+            function addVariable() {
+                const fieldName = document.getElementById('field-name').value.trim();
+                const condition = document.getElementById('condition').value.trim() || "<> ''"; // Default condition
+                const label = document.getElementById('label').value.trim();
+                
+                if (!fieldName || !label) {
+                    alert('Please fill in all required fields');
+                    return;
+                }
+                
+                variables.push({fieldName, condition, label});
+                renderVariables();
+                
+                // Clear input fields (except condition which has default)
+                document.getElementById('field-name').value = '';
+                document.getElementById('label').value = '';
+                // Reset condition to default for next entry
+                document.getElementById('condition').value = "<> ''";
+            }
+            
+            function renderVariables() {
+                const container = document.getElementById('variables-container');
+                container.innerHTML = '';
+                
+                if (variables.length === 0) {
+                    container.innerHTML = '<p>No fields added yet</p>';
+                    return;
+                }
+                
+                variables.forEach((variable, index) => {
+                    const div = document.createElement('div');
+                    div.className = 'variable-item';
+                    div.innerHTML = `
+                        <p><strong>Field:</strong> [${variable.fieldName}]</p>
+                        <p><strong>Condition:</strong> ${variable.condition}</p>
+                        <p><strong>Label:</strong> ${variable.label}</p>
+                        <button class="remove-btn" data-index="${index}">Remove</button>
+                    `;
+                    container.appendChild(div);
+                });
+                
+                // Add event listeners to remove buttons
+                document.querySelectorAll('.remove-btn').forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        const index = parseInt(this.getAttribute('data-index'));
+                        variables.splice(index, 1);
+                        renderVariables();
+                    });
+                });
+            }
+            
+            function generateCalcText() {
+                if (variables.length === 0) {
+                    alert('Please add at least one field');
+                    return;
+                }
+                
+                const separator = document.getElementById('separator').value.trim() || " | "; // Default separator
+                
+                const calctextParts = variables.map(variable => 
+                    `if([${variable.fieldName}] ${variable.condition}, concat('${variable.label}: ', [${variable.fieldName}], '${separator}'), '')`
+                );
+                
+                const calctextFormula = `@CALCTEXT(\n    trim(\n        concat(\n            ${calctextParts.join(',\n            ')}\n        )\n    )\n)`;
+                
+                document.getElementById('result').textContent = calctextFormula;
+                document.getElementById('result-container').style.display = 'block';
+            }
+            
+            function resetAll() {
+                variables.length = 0;
+                renderVariables();
+                document.getElementById('separator').value = ' | ';
+                document.getElementById('condition').value = "<> ''";
+                document.getElementById('result-container').style.display = 'none';
+            }
+            
+            function copyToClipboard() {
+                const result = document.getElementById('result');
+                const range = document.createRange();
+                range.selectNode(result);
+                window.getSelection().removeAllRanges();
+                window.getSelection().addRange(range);
+                document.execCommand('copy');
+                window.getSelection().removeAllRanges();
+                alert('Copied to clipboard!');
+            }
+            
+            // Initial render
+            renderVariables();
+        });
+    </script>
+</body>
+</html>

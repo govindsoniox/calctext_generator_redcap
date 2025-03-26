@@ -185,25 +185,27 @@
             <h3>Example Transformation:</h3>
             <p><strong>Inputs:</strong></p>
             <ul>
-                <li>Field: blood_pressure, Condition: <> '', Label: BP</li>
-                <li>Field: heart_rate, Condition: <> '', Label: HR</li>
+                <li>Field: blood_pressure, Condition: &lt;&gt; '', Label: BP</li>
+                <li>Field: heart_rate, Condition: &lt;&gt; '', Label: HR</li>
                 <li>Field: disease_malignancies, Condition: = "1", Label: Malignancy</li>
                 <li>Field: symptoms___1, Condition: = "1", Label: Fever</li>
+                <li>Field: symptoms___2, Condition: = "1", Label: Cough</li>
                 <li>Separator: |</li>
             </ul>
             <p><strong>Output:</strong></p>
             <pre>@CALCTEXT(
     trim(
         concat(
-            if([blood_pressure] <> '', concat('BP: ', [blood_pressure], ' | '), ''),
-            if([heart_rate] <> '', concat('HR: ', [heart_rate], ' | '), ''),
+            if([blood_pressure] &lt;&gt; '', concat('BP: ', [blood_pressure], ' | '), ''),
+            if([heart_rate] &lt;&gt; '', concat('HR: ', [heart_rate], ' | '), ''),
             if([disease_malignancies] = "1", concat('Malignancy: Yes', ' | '), ''),
-            if([symptoms___1] = "1", concat('Fever', ' | '), '')
+            if([symptoms___1] = "1", concat('Fever', ' | '), ''),
+            if([symptoms___2] = "1", concat('Cough', ' | '), '')
         )
     )
 )</pre>
+            <p>This would display something like: <code>BP: 120/80 | HR: 72 | Malignancy: Yes | Fever | Cough</code> in REDCap</p>
         </div>
-    </div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
